@@ -1676,8 +1676,32 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.warning("filename is None, cannot set brightness/contrast")
             return
 
+        # Build a preview image robust to 16-bit grayscale sources
+        pil_img = utils.img_data_to_pil(self.imageData)
+        if pil_img.mode in ("I;16", "I;16B", "I;16L", "I"):
+            # Per-image min/max normalization to 0..255 before display
+            try:
+                pil_i = pil_img.convert("I")
+                lo, hi = pil_i.getextrema()
+                if hi is None or lo is None:
+                    # Fallback: simple downscale if extrema not available
+                    pil_l = pil_i.point(lambda x: x * (255.0 / 65535.0)).convert("L")
+                elif hi <= lo:
+                    # Constant image: map everything to mid-gray
+                    pil_l = pil_i.point(lambda _x: 128).convert("L")
+                else:
+                    scale = 255.0 / float(hi - lo)
+                    pil_l = pil_i.point(lambda x, lo=lo, s=scale: max(0, min(255, int((x - lo) * s)))).convert("L")
+                pil_img = pil_l.convert("RGB")
+            except Exception:
+                # Any unexpected failure: fall back to regular 16->8 linear mapping
+                pil_img = pil_img.convert("I")
+                pil_img = pil_img.point(lambda x: x * (255.0 / 65535.0)).convert("L").convert("RGB")
+        else:
+            pil_img = pil_img.convert("RGB")
+
         dialog = BrightnessContrastDialog(
-            utils.img_data_to_pil(self.imageData).convert("RGB"),
+            pil_img,
             self.onNewBrightnessContrast,
             parent=self,
         )
@@ -1791,6 +1815,20 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             self.show_status_message(self.tr("Error reading %s") % filename)
             return False
+        # Log what was loaded (optional but helpful when diagnosing various formats)
+        logger.debug(
+            f"QImage: size={image.width()}x{image.height()}, depth={image.depth()}, "
+            f"format={int(image.format())}, isGrayscale={image.isGrayscale()}"
+        )
+
+        # If it’s a 16-bit grayscale image, convert to 8-bit for display
+        if (
+                image.format() == QtGui.QImage.Format_Grayscale16
+                or (image.depth() == 16 and image.isGrayscale())
+        ):
+            logger.debug("Converting Grayscale16 -> Grayscale8 for display")
+            image = image.convertToFormat(QtGui.QImage.Format_Grayscale8)
+
         self.image = image
         self.filename = filename
         self.canvas.loadPixmap(QtGui.QPixmap.fromImage(image))
