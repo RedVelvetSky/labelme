@@ -1544,15 +1544,20 @@ class MainWindow(QtWidgets.QMainWindow):
             # Zoom and center on the first selected shape
             shape = selected_shapes[0]
             if shape.points:
-                # Get bounding rect of the shape
-                rect = shape.boundingRect()
+                # Calculate bounding box from points
+                xs = [p.x() for p in shape.points]
+                ys = [p.y() for p in shape.points]
+                min_x, max_x = min(xs), max(xs)
+                min_y, max_y = min(ys), max(ys)
+                shape_width = max_x - min_x
+                shape_height = max_y - min_y
+                center_x = (min_x + max_x) / 2
+                center_y = (min_y + max_y) / 2
                 
                 # Calculate zoom to fit the shape with some padding
                 scroll_area = self.centralWidget()
                 viewport_width = scroll_area.viewport().width()
                 viewport_height = scroll_area.viewport().height()
-                shape_width = rect.width()
-                shape_height = rect.height()
                 
                 # Add 20% padding
                 padding_factor = 0.8
@@ -1560,17 +1565,35 @@ class MainWindow(QtWidgets.QMainWindow):
                 zoom_y = (viewport_height / shape_height) * padding_factor if shape_height > 0 else 1.0
                 zoom_factor = min(zoom_x, zoom_y, 5.0)  # Cap at 5x zoom
                 
-                # Set zoom centered on shape
-                new_zoom_value = int(zoom_factor * 100)
+                # Set zoom mode and value
                 self._zoom_mode = _ZoomMode.MANUAL_ZOOM
+                new_zoom_value = int(zoom_factor * 100)
+                self.zoomWidget.setValue(new_zoom_value)  # This triggers _paint_canvas
                 
-                # Calculate center of the shape in canvas coordinates
-                center = rect.center()
-                
-                # Set zoom with the shape center as the focus point
-                self._set_zoom(new_zoom_value, pos=center)
+                # After zoom is applied, center on the shape
+                # Need to use the new scale
+                QtCore.QTimer.singleShot(0, lambda: self._center_on_point(center_x, center_y))
         else:
             self.canvas.deSelectShape()
+    
+    def _center_on_point(self, x: float, y: float) -> None:
+        """Center the viewport on a specific point in canvas coordinates."""
+        scroll_area = self.centralWidget()
+        viewport_center_x = scroll_area.viewport().width() / 2
+        viewport_center_y = scroll_area.viewport().height() / 2
+        
+        # Convert canvas coordinates to scaled coordinates
+        scaled_x = x * self.canvas.scale
+        scaled_y = y * self.canvas.scale
+        
+        self.setScroll(
+            QtCore.Qt.Horizontal,
+            scaled_x - viewport_center_x,
+        )
+        self.setScroll(
+            QtCore.Qt.Vertical,
+            scaled_y - viewport_center_y,
+        )
 
     def labelItemChanged(self, item):
         shape = item.shape()
