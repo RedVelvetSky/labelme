@@ -1546,42 +1546,29 @@ class MainWindow(QtWidgets.QMainWindow):
             if shape.points:
                 # Get bounding rect of the shape
                 rect = shape.boundingRect()
-                # Calculate center of the shape
-                center_x = rect.center().x()
-                center_y = rect.center().y()
                 
                 # Calculate zoom to fit the shape with some padding
-                canvas_width = self.canvas.width() / self.canvas.scale
-                canvas_height = self.canvas.height() / self.canvas.scale
+                scroll_area = self.centralWidget()
+                viewport_width = scroll_area.viewport().width()
+                viewport_height = scroll_area.viewport().height()
                 shape_width = rect.width()
                 shape_height = rect.height()
                 
                 # Add 20% padding
                 padding_factor = 0.8
-                zoom_x = (canvas_width / shape_width) * padding_factor if shape_width > 0 else 1.0
-                zoom_y = (canvas_height / shape_height) * padding_factor if shape_height > 0 else 1.0
+                zoom_x = (viewport_width / shape_width) * padding_factor if shape_width > 0 else 1.0
+                zoom_y = (viewport_height / shape_height) * padding_factor if shape_height > 0 else 1.0
                 zoom_factor = min(zoom_x, zoom_y, 5.0)  # Cap at 5x zoom
                 
-                # Set zoom
+                # Set zoom centered on shape
                 new_zoom_value = int(zoom_factor * 100)
                 self._zoom_mode = _ZoomMode.MANUAL_ZOOM
-                self._set_zoom(new_zoom_value)
                 
-                # Center the shape
-                scaled_center_x = center_x * self.canvas.scale
-                scaled_center_y = center_y * self.canvas.scale
-                scroll_area = self.centralWidget()
-                viewport_center_x = scroll_area.viewport().width() / 2
-                viewport_center_y = scroll_area.viewport().height() / 2
+                # Calculate center of the shape in canvas coordinates
+                center = rect.center()
                 
-                self.setScroll(
-                    QtCore.Qt.Horizontal,
-                    scaled_center_x - viewport_center_x,
-                )
-                self.setScroll(
-                    QtCore.Qt.Vertical,
-                    scaled_center_y - viewport_center_y,
-                )
+                # Set zoom with the shape center as the focus point
+                self._set_zoom(new_zoom_value, pos=center)
         else:
             self.canvas.deSelectShape()
 
