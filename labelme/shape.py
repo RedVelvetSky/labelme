@@ -268,7 +268,7 @@ class Shape:
             if vrtx_path.length() > 0:
                 painter.drawPath(vrtx_path)
                 painter.fillPath(vrtx_path, self._current_vertex_fill_color)
-            if self.fill and not self.selected and self.shape_type not in [
+            if self.fill and not self.selected and self._highlightIndex is None and self.shape_type not in [
                 "line",
                 "linestrip",
                 "points",
