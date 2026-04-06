@@ -1563,7 +1563,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 padding_factor = 0.8
                 zoom_x = (viewport_width / shape_width) * padding_factor if shape_width > 0 else 1.0
                 zoom_y = (viewport_height / shape_height) * padding_factor if shape_height > 0 else 1.0
-                zoom_factor = min(zoom_x, zoom_y, 5.0)  # Cap at 5x zoom
+                zoom_factor = min(zoom_x, zoom_y, 10.0)  # Cap at 10x zoom
                 
                 # Set zoom mode and value
                 self._zoom_mode = _ZoomMode.MANUAL_ZOOM
